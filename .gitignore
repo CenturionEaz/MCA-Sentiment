@@ -1,0 +1,46 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java
+*.class
+*.jar
+*.war
+
+# Uploads
+uploads/*.csv
+
+# Generated files
+src/main/resources/static/report.pdf
+src/main/resources/static/last_analysis.csv
+src/main/resources/static/wordcloud.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+
+# AI Model (large files — use Git LFS if needed)
+python-ai-service/policy_sentiment_final/
+python-ai-service/logs/
+python-ai-service/__pycache__/
+
+# Docker
+postgres_data/
+
+# Local secrets
+application-local.properties
+**/application-local.properties
