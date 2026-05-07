@@ -38,7 +38,7 @@ spec:
     - ReadWriteOnce          # Only one node can mount at a time (fine for single DB pod)
   persistentVolumeReclaimPolicy: Retain   # Keep data even after PVC is deleted
   hostPath:
-    path: /mnt/data/mca-postgres          # Minikube host path
+    path: /home/ubuntu/k8s-data/mca-postgres          # Minikube host path
 
 ---
 # ─── Uploads Volume (CSV files uploaded by users) ─────────
@@ -57,7 +57,7 @@ spec:
     - ReadWriteMany            # Multiple backend pods can read/write uploads
   persistentVolumeReclaimPolicy: Retain
   hostPath:
-    path: /mnt/data/mca-uploads
+    path: /home/ubuntu/k8s-data/mca-uploads
 
 ---
 # ─── AI Service Static Output Volume ──────────────────────
@@ -76,7 +76,7 @@ spec:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   hostPath:
-    path: /mnt/data/mca-ai-static
+    path: /home/ubuntu/k8s-data/mca-ai-static
 
 ---
 apiVersion: v1
