@@ -40,4 +40,4 @@ spec:
       protocol: TCP
       port: 80                   # Port exposed by the Service (inside cluster)
       targetPort: 8080
-      nodePort: 30080# Port the backend container listens on
+      nodePort: 30080 # Port the backend container listens on
