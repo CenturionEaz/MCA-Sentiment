@@ -32,11 +32,12 @@ metadata:
     project: mca-econsultation
     component: backend
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: mca-backend             # Routes traffic to all Pods with this label
   ports:
     - name: http
       protocol: TCP
       port: 80                   # Port exposed by the Service (inside cluster)
-      targetPort: 8080           # Port the backend container listens on
+      targetPort: 8080
+      nodePort: 30080# Port the backend container listens on
