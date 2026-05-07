@@ -27,7 +27,7 @@ metadata:
     component: backend
     tier: application
 spec:
-  replicas: 2                      # Start with 2 instances for HA
+  replicas: 1                      # Start with 2 instances for HA
   selector:
     matchLabels:
       app: mca-backend             # Must match template.metadata.labels
