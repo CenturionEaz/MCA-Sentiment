@@ -1,88 +1,35 @@
-# ============================================================
-# ingress/ingress.yaml — Kubernetes Ingress
-# ============================================================
-# PURPOSE: Ingress is a Layer 7 (HTTP/HTTPS) load balancer.
-# It acts as the SINGLE entry point to the entire application
-# from the outside world.
-#
-# WITHOUT INGRESS:
-#   - Each service would need its own NodePort/LoadBalancer
-#   - Multiple external IPs/ports to manage
-#   - No SSL termination in one place
-#   - No path-based routing
-#
-# WITH INGRESS:
-#   - ONE external IP/hostname for everything
-#   - Route /api/* to backend, / to frontend
-#   - SSL/TLS termination at one point
-#   - Host-based virtual routing (multiple apps on one IP)
-#
-# HOW INGRESS WORKS:
-#   Browser → Ingress Controller (nginx) → reads Ingress rules
-#   → routes to correct Service → Service routes to Pod
-#
-# INGRESS vs SERVICE (LoadBalancer):
-#   LoadBalancer = L4 (TCP), one per service, expensive in cloud
-#   Ingress      = L7 (HTTP), shared, cheaper, smarter routing
-#
-# MINIKUBE SETUP:
-#   minikube addons enable ingress
-#   minikube tunnel    (keeps external IP alive — run in separate terminal)
-#
-# THEN ADD TO HOSTS FILE (C:\Windows\System32\drivers\etc\hosts):
-#   127.0.0.1   mca-econsultation.local
-# ============================================================
-
 apiVersion: networking.k8s.io/v1
 kind: Ingress
+
 metadata:
   name: mca-ingress
   namespace: mca-econsultation
-  labels:
-    project: mca-econsultation
+
   annotations:
-    # ── nginx Ingress Controller annotations ──────────────
     kubernetes.io/ingress.class: "nginx"
 
-    # Increase proxy timeouts for large CSV uploads and ML inference
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
 
-    # Allow large file uploads (CSV files can be large)
     nginx.ingress.kubernetes.io/proxy-body-size: "20m"
 
-    # Enable CORS for API calls (if React frontend is added later)
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
 
-    # Rewrite rules: strip /api prefix when forwarding to backend
-    # e.g., /api/analysis → /analysis on the backend
     nginx.ingress.kubernetes.io/use-regex: "true"
 
 spec:
-  # ── Rules: which host/path routes to which service ──────
+  ingressClassName: nginx
+
   rules:
-    - host: mca-econsultation.local
-      # For Minikube, use the hostname you added to /etc/hosts
-      # In production, replace with your real domain: mca.yourname.com
-      http:
+    - http:
         paths:
-          # ── All traffic → Spring Boot backend ───────────
-          # Spring Boot serves BOTH the UI (Thymeleaf) AND the API
-          # So ALL paths go to the backend service
           - path: /
             pathType: Prefix
+
             backend:
               service:
                 name: mca-backend-service
                 port:
                   number: 80
-
-  # ── TLS (HTTPS) — Uncomment to enable SSL ───────────────
-  # For production, use cert-manager with Let's Encrypt:
-  #   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
-  # tls:
-  #   - hosts:
-  #       - mca-econsultation.local
-  #     secretName: mca-tls-secret
