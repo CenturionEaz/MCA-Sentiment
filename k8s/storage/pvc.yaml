@@ -28,7 +28,6 @@ metadata:
     project: mca-econsultation
     component: database
 spec:
-  storageClassName: manual
   accessModes:
     - ReadWriteOnce
   resources:
@@ -46,7 +45,6 @@ metadata:
     project: mca-econsultation
     component: backend
 spec:
-  storageClassName: manual
   accessModes:
     - ReadWriteMany
   resources:
@@ -64,7 +62,6 @@ metadata:
     project: mca-econsultation
     component: ai-service
 spec:
-  storageClassName: manual
   accessModes:
     - ReadWriteMany
   resources:
