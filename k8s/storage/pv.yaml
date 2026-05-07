@@ -32,7 +32,6 @@ metadata:
     component: database
     type: local
 spec:
-  storageClassName: manual
   capacity:
     storage: 2Gi
   accessModes:
@@ -52,7 +51,6 @@ metadata:
     component: backend
     type: local
 spec:
-  storageClassName: manual
   capacity:
     storage: 1Gi
   accessModes:
@@ -72,7 +70,6 @@ metadata:
     component: ai-service
     type: local
 spec:
-  storageClassName: manual
   capacity:
     storage: 500Mi
   accessModes:
