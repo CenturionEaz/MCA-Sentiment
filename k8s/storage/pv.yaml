@@ -77,3 +77,22 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   hostPath:
     path: /mnt/data/mca-ai-static
+
+---
+apiVersion: v1
+kind: PersistentVolume
+
+metadata:
+  name: mca-uploads-pv
+
+spec:
+  capacity:
+    storage: 1Gi
+
+  accessModes:
+    - ReadWriteOnce
+
+  persistentVolumeReclaimPolicy: Retain
+
+  hostPath:
+    path: /home/ubuntu/k8s-data/mca-uploads
