@@ -1,0 +1,69 @@
+# ============================================================
+# frontend/deployment.yaml — Frontend (Thymeleaf via Spring Boot)
+# ============================================================
+# NOTE ON ARCHITECTURE:
+#   In this project, the frontend is served by the Spring Boot
+#   backend itself via Thymeleaf templates. There is NO separate
+#   frontend container.
+#
+#   This file is intentionally a PASSTHROUGH — it documents
+#   why there's no standalone frontend deployment, and provides
+#   a ready-made template IF you ever migrate to a separate
+#   React/Vue/Next.js frontend in the future.
+#
+# IF YOU MIGRATE TO A SEPARATE FRONTEND (e.g., React):
+#   1. Create frontend/Dockerfile (nginx serving build output)
+#   2. Build and push image: YOUR_DOCKERHUB_USERNAME/mca-frontend:latest
+#   3. Uncomment the deployment below
+#   4. Create frontend/service.yaml
+#   5. Update ingress to route / to frontend, /api/* to backend
+#
+# CURRENT SETUP:
+#   All UI routes (/dashboard, /upload, /history, /login)
+#   are handled by Spring Boot + Thymeleaf.
+#   The backend Service (mca-backend-service) IS the frontend entry point.
+#   Ingress routes all traffic to mca-backend-service.
+# ============================================================
+
+# ─── FUTURE FRONTEND DEPLOYMENT TEMPLATE (uncomment to use) ───
+#
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: mca-frontend
+#   namespace: mca-econsultation
+#   labels:
+#     project: mca-econsultation
+#     component: frontend
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       app: mca-frontend
+#   template:
+#     metadata:
+#       labels:
+#         app: mca-frontend
+#         component: frontend
+#     spec:
+#       containers:
+#         - name: mca-frontend
+#           image: YOUR_DOCKERHUB_USERNAME/mca-frontend:latest
+#           ports:
+#             - containerPort: 80
+#           env:
+#             - name: REACT_APP_API_URL
+#               value: "http://mca-backend-service"
+#           resources:
+#             requests:
+#               memory: "128Mi"
+#               cpu: "100m"
+#             limits:
+#               memory: "256Mi"
+#               cpu: "500m"
+#           livenessProbe:
+#             httpGet:
+#               path: /
+#               port: 80
+#             initialDelaySeconds: 10
+#             periodSeconds: 15

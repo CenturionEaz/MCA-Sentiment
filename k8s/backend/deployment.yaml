@@ -1,0 +1,175 @@
+# ============================================================
+# backend/deployment.yaml — Spring Boot Backend Deployment
+# ============================================================
+# PURPOSE: A Deployment tells Kubernetes HOW to run the backend.
+# It manages ReplicaSets which manage individual Pods.
+#
+# KEY CONCEPTS:
+#   replicas:       How many identical Pods to run (horizontal scaling)
+#   selector:       How Kubernetes finds which Pods belong to this Deployment
+#   template:       The Pod blueprint (image, env vars, volumes, ports)
+#   resources:      CPU/Memory limits prevent one Pod from starving others
+#   livenessProbe:  Kubernetes restarts Pod if this check fails
+#   readinessProbe: Kubernetes only sends traffic after this check passes
+#
+# DIFFERENCE — Deployment vs Pod:
+#   Pod alone = no self-healing, no scaling
+#   Deployment = auto-restart on failure, rolling updates, rollback
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mca-backend
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: backend
+    tier: application
+spec:
+  replicas: 2                      # Start with 2 instances for HA
+  selector:
+    matchLabels:
+      app: mca-backend             # Must match template.metadata.labels
+  strategy:
+    type: RollingUpdate            # Zero-downtime deploys
+    rollingUpdate:
+      maxSurge: 1                  # Allow 1 extra Pod during update
+      maxUnavailable: 0            # Never go below desired replica count
+  template:
+    metadata:
+      labels:
+        app: mca-backend
+        component: backend
+        project: mca-econsultation
+    spec:
+      # Wait for postgres and ai-service to be ready before starting
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL..."
+              until nc -z mca-postgres-service 5432; do
+                echo "PostgreSQL not ready, sleeping 3s..."
+                sleep 3
+              done
+              echo "PostgreSQL is ready!"
+        - name: wait-for-ai-service
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for AI service..."
+              until nc -z mca-ai-service 5001; do
+                echo "AI service not ready, sleeping 3s..."
+                sleep 3
+              done
+              echo "AI service is ready!"
+
+      containers:
+        - name: mca-backend
+          image: umbramortis/mca-backend:latest
+          # Replace YOUR_DOCKERHUB_USERNAME with your actual DockerHub username
+          # e.g., image: akash123/mca-backend:latest
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 8080
+              name: http
+
+          # ── Environment from ConfigMap (non-sensitive) ──────
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: mca-backend-config
+                  key: SPRING_DATASOURCE_URL
+
+            - name: AI_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: mca-backend-config
+                  key: AI_SERVICE_URL
+
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              valueFrom:
+                configMapKeyRef:
+                  name: mca-backend-config
+                  key: SPRING_JPA_DDL_AUTO
+
+            # ── Secrets (sensitive values) ──────────────────
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mca-secrets
+                  key: POSTGRES_USER
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mca-secrets
+                  key: SPRING_DATASOURCE_PASSWORD
+
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: mca-secrets
+                  key: GOOGLE_CLIENT_ID
+
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mca-secrets
+                  key: GOOGLE_CLIENT_SECRET
+
+          # ── Resource Limits (required for HPA to work) ──────
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"        # 0.25 CPU cores
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"       # 1 CPU core max
+
+          # ── Health Checks ────────────────────────────────────
+          # livenessProbe: restarts the container if it's unresponsive
+          # Using tcpSocket because Spring Boot Actuator is NOT in pom.xml.
+          # tcpSocket checks that port 8080 is accepting connections.
+          # To switch to HTTP probe, add spring-boot-starter-actuator to pom.xml
+          # and use: httpGet: path: /actuator/health port: 8080
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 60    # Wait 60s before first check (JVM startup)
+            periodSeconds: 30
+            failureThreshold: 3
+
+          # readinessProbe: removes Pod from Service endpoints if not ready
+          # GET / returns HTTP 302 (redirect to /login) — that is a valid response
+          # Kubernetes treats any 2xx or 3xx as success for readinessProbe
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 45
+            periodSeconds: 15
+            failureThreshold: 3
+
+          # ── Volume Mounts ────────────────────────────────────
+          volumeMounts:
+            - name: uploads-storage
+              mountPath: /app/uploads           # Where backend writes uploaded CSVs
+            - name: ai-static-storage
+              mountPath: /app/python-ai-service/static  # Word cloud images from AI service
+
+      volumes:
+        - name: uploads-storage
+          persistentVolumeClaim:
+            claimName: mca-uploads-pvc
+        - name: ai-static-storage
+          persistentVolumeClaim:
+            claimName: mca-ai-static-pvc

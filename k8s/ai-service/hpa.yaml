@@ -1,0 +1,60 @@
+# ============================================================
+# ai-service/hpa.yaml — HPA for Python AI Service
+# ============================================================
+# PURPOSE: Auto-scales the AI service based on CPU load.
+# When multiple users submit CSV files simultaneously,
+# the Flask AI service gets CPU-intensive.
+#
+# NOTE: ML inference is CPU-bound (or GPU-bound). We scale
+# horizontally here since we are on CPU-only Minikube.
+# In production, you would use GPU nodes and DaemonSets.
+#
+# minReplicas = 1 (not 2) because model loading is expensive
+# and we want to conserve resources in low-traffic periods.
+# ============================================================
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mca-ai-service-hpa
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: ai-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mca-ai-service
+
+  minReplicas: 1                 # 1 minimum (model loading is memory-heavy)
+  maxReplicas: 4                 # 4 max (each needs ~1.5Gi RAM)
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75   # Scale when CPU > 75% (inference is CPU-heavy)
+
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 85
+
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 120  # Wait 2 min before scaling up
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120           # Add 1 Pod at a time (careful with memory)
+    scaleDown:
+      stabilizationWindowSeconds: 600  # Wait 10 min before scaling down
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 180

@@ -44,3 +44,9 @@ postgres_data/
 # Local secrets
 application-local.properties
 **/application-local.properties
+
+# Node.js
+node_modules/
+
+# Secrets
+application.properties

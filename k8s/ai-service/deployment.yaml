@@ -1,0 +1,117 @@
+# ============================================================
+# ai-service/deployment.yaml — Python Flask AI Service Deployment
+# ============================================================
+# PURPOSE: Runs the Python sentiment analysis service.
+# The AI service is called by the Java backend via HTTP
+# at http://mca-ai-service:5001/predict
+#
+# NOTE ON RESOURCES:
+#   PyTorch/Transformers are memory-heavy. The AI service
+#   is given more memory than the backend (1.5Gi request).
+#   Adjust based on your model size.
+#
+# NOTE ON REPLICAS:
+#   AI service starts with 1 replica. HPA scales it based
+#   on CPU. Model loading is expensive so we allow 90s
+#   startup time before health checks begin.
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mca-ai-service
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: ai-service
+    tier: ml
+spec:
+  replicas: 1                      # Start with 1; HPA will scale as needed
+  selector:
+    matchLabels:
+      app: mca-ai-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: mca-ai-service
+        component: ai-service
+        project: mca-econsultation
+    spec:
+      containers:
+        - name: mca-ai-service
+          image: umbramortis/mca-ai-service:latest
+          # Replace YOUR_DOCKERHUB_USERNAME with your actual DockerHub username
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 5001
+              name: flask
+
+          # ── Environment from ConfigMap ───────────────────
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: mca-ai-config
+                  key: PORT
+
+            - name: MODEL_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: mca-ai-config
+                  key: MODEL_DIR
+
+            - name: STATIC_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: mca-ai-config
+                  key: STATIC_DIR
+
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: mca-ai-config
+                  key: LOG_LEVEL
+
+          # ── Resource Limits ──────────────────────────────
+          # PyTorch + Transformers need significant memory
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "3Gi"
+              cpu: "2000m"
+
+          # ── Health Checks ────────────────────────────────
+          # Flask /health endpoint returns {"status": "ok"}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 90    # Model loading takes ~60-90s
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+
+          # ── Volume Mounts ────────────────────────────────
+          volumeMounts:
+            - name: ai-static-storage
+              mountPath: /app/static   # Word cloud and chart outputs
+
+      volumes:
+        - name: ai-static-storage
+          persistentVolumeClaim:
+            claimName: mca-ai-static-pvc

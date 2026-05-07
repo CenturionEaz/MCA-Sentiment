@@ -1,0 +1,85 @@
+# ============================================================
+# configmap.yaml — ConfigMaps
+# ============================================================
+# PURPOSE: ConfigMaps store NON-SENSITIVE configuration data
+# as key-value pairs. Pods consume them as environment variables
+# or mounted files.
+#
+# WHY CONFIGMAPS (not hardcoded values)?
+#   - Change config without rebuilding Docker images
+#   - Same image works in dev, staging, and prod with
+#     different ConfigMaps
+#   - Centralised config management
+#
+# RULE: Use ConfigMap for URLs, ports, feature flags.
+#       Use Secrets for passwords, tokens, API keys.
+# ============================================================
+
+---
+# ─── Backend (Spring Boot) Configuration ─────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mca-backend-config
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: backend
+data:
+  # Spring Boot datasource URL — points to the postgres Service DNS
+  # Inside Kubernetes, services are reachable via:
+  #   <service-name>.<namespace>.svc.cluster.local
+  # or simply <service-name> within the same namespace
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://mca-postgres-service:5432/mca_db"
+  SPRING_DATASOURCE_USERNAME: "postgres"
+
+  # AI service internal DNS — the Python Flask service
+  AI_SERVICE_URL: "http://mca-ai-service:5001"
+
+  # File paths inside the container (match what application.properties expects)
+  FILE_UPLOAD_DIR: "uploads/"
+  REPORT_OUTPUT_DIR: "src/main/resources/static/"
+
+  # Spring JPA settings
+  SPRING_JPA_DDL_AUTO: "update"
+  SPRING_JPA_SHOW_SQL: "false"
+
+  # Server port
+  SERVER_PORT: "8080"
+
+---
+# ─── AI Service (Python Flask) Configuration ─────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mca-ai-config
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: ai-service
+data:
+  # Flask port
+  PORT: "5001"
+
+  # Model directory inside container
+  MODEL_DIR: "/app/policy_sentiment_final"
+
+  # Static output directory for word cloud images etc.
+  STATIC_DIR: "/app/static"
+
+  # Log level
+  LOG_LEVEL: "INFO"
+
+---
+# ─── PostgreSQL Configuration ─────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mca-postgres-config
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: database
+data:
+  POSTGRES_DB: "mca_db"
+  PGDATA: "/var/lib/postgresql/data/pgdata"

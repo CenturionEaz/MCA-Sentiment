@@ -1,0 +1,72 @@
+# ============================================================
+# pvc.yaml — PersistentVolumeClaims
+# ============================================================
+# PURPOSE: A PVC is a "request" for storage made by a Pod.
+# Kubernetes automatically matches it to a PV with the same
+# storageClassName, accessMode, and sufficient capacity.
+#
+# FLOW:
+#   Pod Template → references PVC by name
+#   PVC           → binds to a matching PV
+#   PV            → maps to actual disk on the host
+#
+# WHY SEPARATE PV and PVC?
+#   - Decouples storage provisioning (admin) from storage use (dev)
+#   - Pods don't need to know WHERE storage lives
+#   - Allows storage to be swapped (e.g., hostPath → AWS EBS)
+#     without changing deployment specs
+# ============================================================
+
+---
+# ─── PostgreSQL Data Claim ────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mca-postgres-pvc
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: database
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+# ─── Uploads Claim (for CSV files) ───────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mca-uploads-pvc
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: backend
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# ─── AI Service Static Output Claim ──────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mca-ai-static-pvc
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: ai-service
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 500Mi

@@ -1,0 +1,31 @@
+# ============================================================
+# ai-service/service.yaml — Python Flask AI Service
+# ============================================================
+# PURPOSE: Stable internal network endpoint for the AI service.
+# The Java backend calls this Service by DNS name:
+#   http://mca-ai-service:5001/predict
+#   http://mca-ai-service:5001/health
+#
+# WHY ClusterIP (not NodePort)?
+#   - The AI service should NOT be directly accessible from outside
+#   - Only the Java backend needs to call it
+#   - Keeps the ML model endpoint private and secure
+# ============================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mca-ai-service
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: ai-service
+spec:
+  type: ClusterIP
+  selector:
+    app: mca-ai-service          # Routes to AI service Pods
+  ports:
+    - name: flask
+      protocol: TCP
+      port: 5001                 # Internal cluster port
+      targetPort: 5001           # Flask container port

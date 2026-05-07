@@ -1,0 +1,82 @@
+# ============================================================
+# pv.yaml  — PersistentVolumes
+# ============================================================
+# PURPOSE: Defines physical storage on the Kubernetes node.
+# A PersistentVolume (PV) is cluster-scoped (not namespace-scoped)
+# and represents actual disk space.
+#
+# WHY PV/PVC?
+#   - Containers are ephemeral; if a Pod restarts, all data
+#     written inside the container is LOST.
+#   - PV/PVC separates storage lifecycle from Pod lifecycle.
+#   - PostgreSQL data and uploaded CSV files must survive
+#     Pod restarts, so we persist them to host paths.
+#
+# HOW IT WORKS:
+#   PV  = the actual storage resource (cluster admin creates this)
+#   PVC = a claim/request made by a Pod for that storage
+#   Kubernetes binds PVC <-> PV automatically when specs match.
+#
+# NOTE: hostPath is used here for Minikube/local development.
+# In production (AWS/GCP/Azure), use cloud-native storage classes.
+# ============================================================
+
+---
+# ─── PostgreSQL Data Volume ───────────────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mca-postgres-pv
+  labels:
+    project: mca-econsultation
+    component: database
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce          # Only one node can mount at a time (fine for single DB pod)
+  persistentVolumeReclaimPolicy: Retain   # Keep data even after PVC is deleted
+  hostPath:
+    path: /mnt/data/mca-postgres          # Minikube host path
+
+---
+# ─── Uploads Volume (CSV files uploaded by users) ─────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mca-uploads-pv
+  labels:
+    project: mca-econsultation
+    component: backend
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany            # Multiple backend pods can read/write uploads
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/data/mca-uploads
+
+---
+# ─── AI Service Static Output Volume ──────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mca-ai-static-pv
+  labels:
+    project: mca-econsultation
+    component: ai-service
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 500Mi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/data/mca-ai-static

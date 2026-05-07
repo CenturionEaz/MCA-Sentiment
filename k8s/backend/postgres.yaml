@@ -1,0 +1,151 @@
+# ============================================================
+# postgres/deployment.yaml — PostgreSQL Database Deployment
+# ============================================================
+# PURPOSE: Runs the PostgreSQL 15 database as a StatefulSet-like
+# Deployment with persistent storage.
+#
+# WHY NOT StatefulSet?
+#   For a single-replica DB in a dev/capstone environment,
+#   a Deployment with a PVC is simpler and sufficient.
+#   Production multi-replica Postgres would use a StatefulSet
+#   with one PVC per replica (volumeClaimTemplates).
+#
+# IMPORTANT:
+#   replicas: 1 for Postgres is intentional.
+#   Running multiple Postgres replicas requires Patroni/pgpool
+#   for leader election — out of scope for this project.
+#
+# DATA PERSISTENCE:
+#   The PVC ensures data survives Pod restarts.
+#   Even if the Pod is killed, the data on the PV is safe.
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mca-postgres
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: database
+    tier: data
+spec:
+  replicas: 1                      # Single DB instance (sufficient for capstone)
+  selector:
+    matchLabels:
+      app: mca-postgres
+  strategy:
+    type: Recreate                 # Stop old Pod, then start new (safer for DB)
+    # Recreate (not RollingUpdate) because Postgres can't have 2 writers simultaneously
+  template:
+    metadata:
+      labels:
+        app: mca-postgres
+        component: database
+        project: mca-econsultation
+    spec:
+      containers:
+        - name: mca-postgres
+          image: postgres:15
+          imagePullPolicy: IfNotPresent   # Use cached image if available
+
+          ports:
+            - containerPort: 5432
+              name: postgres
+
+          # ── Environment from ConfigMap and Secrets ───────
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: mca-postgres-config
+                  key: POSTGRES_DB
+
+            - name: PGDATA
+              valueFrom:
+                configMapKeyRef:
+                  name: mca-postgres-config
+                  key: PGDATA
+
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mca-secrets
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mca-secrets
+                  key: POSTGRES_PASSWORD
+
+          # ── Resource Limits ──────────────────────────────
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+          # ── Health Checks ────────────────────────────────
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+                - -d
+                - mca_db
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 5
+
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+                - -d
+                - mca_db
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # ── Volume Mount ─────────────────────────────────
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: mca-postgres-pvc
+
+---
+# ============================================================
+# postgres/service.yaml — PostgreSQL Service
+# ============================================================
+# Internal Service so that the Spring Boot backend can connect.
+# DNS: mca-postgres-service.mca-econsultation.svc.cluster.local
+#   or simply: mca-postgres-service (within same namespace)
+# ============================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mca-postgres-service
+  namespace: mca-econsultation
+  labels:
+    project: mca-econsultation
+    component: database
+spec:
+  type: ClusterIP
+  selector:
+    app: mca-postgres
+  ports:
+    - name: postgres
+      protocol: TCP
+      port: 5432
+      targetPort: 5432

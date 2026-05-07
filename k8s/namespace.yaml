@@ -1,0 +1,22 @@
+# ============================================================
+# namespace.yaml
+# ============================================================
+# PURPOSE: Creates an isolated Kubernetes namespace called
+# "mca-econsultation". All resources (pods, services,
+# configmaps, secrets, PVCs, HPA) are deployed inside this
+# namespace so they don't collide with other workloads on the
+# same cluster.
+#
+# WHY NAMESPACES?
+#   - Logical isolation between projects/environments
+#   - Allows per-namespace RBAC, resource quotas, network policies
+#   - Easy teardown: kubectl delete namespace mca-econsultation
+# ============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mca-econsultation
+  labels:
+    project: mca-econsultation
+    managed-by: kubectl
