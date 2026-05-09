@@ -40,7 +40,7 @@ spec:
     kind: Deployment
     name: mca-backend            # This HPA controls the mca-backend Deployment
 
-  minReplicas: 2                 # Always keep at least 2 Pods (High Availability)
+  minReplicas: 1                 # Always keep at least 2 Pods (High Availability)
   maxReplicas: 8                 # Never scale beyond 8 Pods
 
   metrics:
